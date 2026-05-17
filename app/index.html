@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Glaciar Antártico · Velocidades de flujo</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.2/proj4.js"></script>
+  <script src="https://unpkg.com/proj4leaflet@1.0.2/src/proj4leaflet.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Glaciar Antártico</h1>
+    <nav class="tabs">
+      <button class="tab active" data-tab="velocidad">Velocidades (ITS_LIVE)</button>
+      <button class="tab" data-tab="sensores">Sensores multi-fuente</button>
+      <button class="tab" data-tab="historico">Evolución histórica</button>
+      <button class="tab" data-tab="prediccion">Predicción</button>
+      <button class="tab" data-tab="acerca">Acerca</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Velocidades ITS_LIVE -->
+    <section id="tab-velocidad" class="tab-panel active">
+      <aside class="sidebar">
+        <h3>Capas</h3>
+        <div class="filter-group">
+          <label>Mosaico ITS_LIVE</label>
+          <select id="itslive-year">
+            <option value="0000">Mosaico anual compuesto</option>
+            <option value="2022">2022</option>
+            <option value="2021">2021</option>
+            <option value="2020">2020</option>
+            <option value="2019">2019</option>
+            <option value="2018">2018</option>
+            <option value="2017">2017</option>
+            <option value="2016">2016</option>
+            <option value="2015">2015</option>
+            <option value="2014">2014</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Variable</label>
+          <label class="checkbox">
+            <input type="radio" name="itslive-var" value="v" checked />
+            Magnitud (m/yr)
+          </label>
+          <label class="checkbox">
+            <input type="radio" name="itslive-var" value="vx" />
+            Componente Vx
+          </label>
+          <label class="checkbox">
+            <input type="radio" name="itslive-var" value="vy" />
+            Componente Vy
+          </label>
+        </div>
+        <div class="filter-group">
+          <label class="checkbox">
+            <input type="checkbox" id="show-glaciers" checked />
+            Marcadores de glaciares clave
+          </label>
+        </div>
+        <h3>Sitios destacados</h3>
+        <ul id="glaciers-list" class="glacier-list"></ul>
+        <p id="status" class="muted" style="font-size:0.75rem; margin-top:1rem;">Cargando ITS_LIVE…</p>
+      </aside>
+      <div id="map"></div>
+      <aside id="detail-panel" class="detail-panel hidden">
+        <button class="close" aria-label="Cerrar">×</button>
+        <h2 id="detail-name"></h2>
+        <p id="detail-meta" class="muted"></p>
+        <h4>Velocidad estimada</h4>
+        <p id="detail-vel">—</p>
+        <h4>Estado</h4>
+        <p id="detail-status">—</p>
+        <h4>Descripción</h4>
+        <p id="detail-desc">—</p>
+        <h4>Referencias</h4>
+        <p id="detail-refs" class="muted">—</p>
+      </aside>
+    </section>
+
+    <!-- Sensores -->
+    <section id="tab-sensores" class="tab-panel">
+      <div class="prose">
+        <h2>Sensores multi-fuente</h2>
+        <p>Esta pestaña reunirá productos derivados de distintos sensores:</p>
+        <ul>
+          <li><strong>Sentinel-1 (SAR):</strong> par de imágenes + autoRIFT → mapa propio de velocidad. Pipeline en
+            <code>scripts/sentinel1_autorift.py</code>.</li>
+          <li><strong>Sentinel-2 (óptico):</strong> serie temporal de líneas de costa de hielo. Pipeline en
+            <code>scripts/sentinel2_coastlines.py</code>.</li>
+          <li><strong>Sentinel-3 SLSTR:</strong> temperatura superficial y albedo. Pipeline en
+            <code>scripts/sentinel3_lst_albedo.py</code>.</li>
+          <li><strong>ICESat-2 ATL06/ATL11:</strong> cambios de elevación. Pipeline en
+            <code>scripts/icesat2_dhdt.py</code>.</li>
+        </ul>
+        <p class="muted">Estado: pipelines pendientes (ver <code>docs/metodologia.md</code>).</p>
+      </div>
+    </section>
+
+    <!-- Histórico -->
+    <section id="tab-historico" class="tab-panel">
+      <div class="prose">
+        <h2>Evolución del hielo continental — Cuaternario</h2>
+        <p>Reconstrucciones de máximos glaciares pasados (LGM ~21 ka, Eemiense ~125 ka, MIS-31 ~1.07 Ma).</p>
+        <ul>
+          <li>RAISED Consortium (Bentley et al. 2014) — reconstrucción LGM consolidada.</li>
+          <li>Golledge et al. 2017 — modelos PISM/ICE-6G del Cuaternario.</li>
+          <li>Salida esperada: capa GeoJSON de límites paleoglaciares animable por edad.</li>
+        </ul>
+        <p class="muted">Estado: pendiente. Datos curados a mano + modelos publicados.</p>
+      </div>
+    </section>
+
+    <!-- Predicción -->
+    <section id="tab-prediccion" class="tab-panel">
+      <div class="prose">
+        <h2>Predicción bajo escenarios IPCC</h2>
+        <p>Proyecciones de retroceso glaciar y pérdida de masa bajo SSP1-2.6, SSP2-4.5 y SSP5-8.5 (CMIP6 / ISMIP6).</p>
+        <ul>
+          <li><strong>ISMIP6-Antarctica:</strong> ensemble de modelos de hielo forzados con CMIP6.</li>
+          <li><strong>Salidas:</strong> contribución al SLR, líneas de costa proyectadas a 2100 y 2300.</li>
+        </ul>
+        <p class="muted">Estado: pendiente. Bajar productos ISMIP6 y armar visualizador comparativo.</p>
+      </div>
+    </section>
+
+    <!-- Acerca -->
+    <section id="tab-acerca" class="tab-panel">
+      <div class="prose">
+        <h2>Acerca</h2>
+        <p>
+          Proyecto 2 del documento <em>Visor Antartico.docx</em>. Su objetivo es medir, modelar y proyectar
+          la dinámica del hielo antártico a partir de teledetección satelital. Trabaja en EPSG:3031 y es
+          complementario al <a href="../../Contextos%20geologicos/app/">Visor de Contextos Geológicos Antárticos</a>.
+        </p>
+        <h3>Fuentes principales</h3>
+        <ul>
+          <li><a href="https://its-live.jpl.nasa.gov/" target="_blank">ITS_LIVE (NASA/JPL)</a> — velocidades pre-computadas.</li>
+          <li><a href="https://dataspace.copernicus.eu/" target="_blank">Copernicus Data Space</a> — Sentinel-1/2/3.</li>
+          <li><a href="https://nsidc.org/" target="_blank">NSIDC</a> — ICESat-2.</li>
+          <li><a href="https://theghub.org/groups/ismip6" target="_blank">ISMIP6</a> — ensemble de modelos de hielo.</li>
+        </ul>
+        <p class="muted">Estado: esqueleto inicial.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
