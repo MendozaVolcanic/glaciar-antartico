@@ -2,7 +2,13 @@
 
 Herramienta para medir, modelar y proyectar la dinámica del hielo antártico a partir de teledetección satelital.
 
-Proyecto 2 del documento `Visor Antartico.docx`. Independiente del visor de contextos geológicos antárticos (`../Contextos geologicos/`), aunque comparte el sistema de coordenadas polar EPSG:3031 y puede integrarse como capa adicional en el visor maestro a futuro.
+🌐 **Dashboard público:** https://mendozavolcanic.github.io/glaciar-antartico/ *(GitHub Pages, redeploy automático en cada push a `main`)*
+
+Proyecto 2 del documento `Visor Antartico.docx`. Independiente del visor de contextos geológicos antárticos (Proyecto 1), aunque comparte el sistema de coordenadas polar EPSG:3031 y puede integrarse como capa adicional a futuro.
+
+**Suite Antártica:**
+- 🌐 [contextos-geologicos](https://mendozavolcanic.github.io/contextos-geologicos/) — Proyecto 1: visor de 9 SCAR Frameworks + 121 geositios (ASPAs + SCAR + propuestos bibliométrica) + BedMap UI
+- 🧊 **glaciar-antartico** *(este repo)* — Proyecto 2: velocidades ITS_LIVE, sensores multi-fuente, predicción IPCC
 
 ## Objetivos
 
