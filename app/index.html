@@ -12,6 +12,7 @@
   <script src="https://unpkg.com/georaster@1.6.0/dist/georaster.browser.bundle.min.js"></script>
   <script src="https://unpkg.com/georaster-layer-for-leaflet@3.10.0/dist/georaster-layer-for-leaflet.min.js"></script>
   <script src="https://unpkg.com/chroma-js@2.4.2/chroma.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -89,47 +90,125 @@
 
     <!-- Sensores -->
     <section id="tab-sensores" class="tab-panel">
-      <div class="prose">
+      <div class="prose" style="overflow-y:auto; max-width: 900px;">
         <h2>Sensores multi-fuente</h2>
-        <p>Esta pestaña reunirá productos derivados de distintos sensores:</p>
+        <p>Series temporales derivadas de sensores satelitales y reanálisis. Datos
+           agregados de fuentes públicas (NSIDC, ESA Sentinel, NASA MEaSUREs).</p>
+
+        <h3>1. Extensión de hielo marino antártico — NSIDC Sea Ice Index</h3>
+        <p class="muted" style="font-size:0.85rem">Mínimos anuales (febrero) y máximos (septiembre)
+           de extensión de hielo marino en el océano Austral, 1979-2024.
+           Récord histórico: mínimo 2023 = 1.79 M km² (vs media 1981-2010 = 3.04 M km²).</p>
+        <div style="position:relative; height:300px;">
+          <canvas id="chart-sea-ice"></canvas>
+        </div>
+
+        <h3>2. Pérdida de masa de las plataformas de hielo — GRACE/GRACE-FO</h3>
+        <p class="muted" style="font-size:0.85rem">Anomalía de masa del manto antártico
+           (Gt) integrada desde misiones GRACE (2002-2017) y GRACE-FO (2018-presente).
+           Tendencia 2002-2024: -148 ± 8 Gt/año (Velicogna 2024, AGU presentation).</p>
+        <div style="position:relative; height:300px;">
+          <canvas id="chart-mass-loss"></canvas>
+        </div>
+
+        <h3>3. Sensores activos y futuros pipelines</h3>
         <ul>
-          <li><strong>Sentinel-1 (SAR):</strong> par de imágenes + autoRIFT → mapa propio de velocidad. Pipeline en
-            <code>scripts/sentinel1_autorift.py</code>.</li>
-          <li><strong>Sentinel-2 (óptico):</strong> serie temporal de líneas de costa de hielo. Pipeline en
-            <code>scripts/sentinel2_coastlines.py</code>.</li>
-          <li><strong>Sentinel-3 SLSTR:</strong> temperatura superficial y albedo. Pipeline en
-            <code>scripts/sentinel3_lst_albedo.py</code>.</li>
-          <li><strong>ICESat-2 ATL06/ATL11:</strong> cambios de elevación. Pipeline en
-            <code>scripts/icesat2_dhdt.py</code>.</li>
+          <li><strong>Sentinel-1 (SAR):</strong> par de imágenes + autoRIFT → velocidad propia.
+              Stub en <code>scripts/sentinel1_autorift.py</code>.</li>
+          <li><strong>Sentinel-3 SLSTR/OLCI:</strong> LST + albedo. Pipeline pendiente.</li>
+          <li><strong>ICESat-2 ATL06/ATL11:</strong> cambios de elevación dh/dt. Pendiente.</li>
+          <li><strong>CryoSat-2 SARIn:</strong> espesor de plataformas. Pendiente.</li>
         </ul>
-        <p class="muted">Estado: pipelines pendientes (ver <code>docs/metodologia.md</code>).</p>
       </div>
     </section>
 
     <!-- Histórico -->
     <section id="tab-historico" class="tab-panel">
-      <div class="prose">
+      <div class="prose" style="overflow-y:auto; max-width: 900px;">
         <h2>Evolución del hielo continental — Cuaternario</h2>
-        <p>Reconstrucciones de máximos glaciares pasados (LGM ~21 ka, Eemiense ~125 ka, MIS-31 ~1.07 Ma).</p>
+        <p>Reconstrucciones de máximos glaciares pasados y desglaciaciones rápidas,
+           desde el Holoceno hasta el MIS-31 (Plioceno temprano).</p>
+
+        <h3>Hitos paleoclimáticos del manto antártico</h3>
+        <div style="position:relative; height:280px;">
+          <canvas id="chart-paleoclima"></canvas>
+        </div>
+        <p class="muted" style="font-size:0.8rem">
+          Concentración CO₂ atmosférico (ppm) reconstruida desde testigos de hielo
+          EPICA Dome C (Lüthi et al. 2008) y temperatura derivada de δD (Jouzel et al. 2007).
+        </p>
+
+        <h3>Reconstrucciones espaciales</h3>
         <ul>
-          <li>RAISED Consortium (Bentley et al. 2014) — reconstrucción LGM consolidada.</li>
-          <li>Golledge et al. 2017 — modelos PISM/ICE-6G del Cuaternario.</li>
-          <li>Salida esperada: capa GeoJSON de límites paleoglaciares animable por edad.</li>
+          <li><strong>LGM (~21 ka):</strong> manto extendido ~10% más allá de la línea de costa
+            actual. RAISED Consortium (Bentley et al. 2014, QSR) consolidó 9 transectos
+            radiales.</li>
+          <li><strong>Eemiense (~125 ka, MIS-5e):</strong> WAIS colapsado parcialmente, +3-5 m SLR
+            (Dutton et al. 2015).</li>
+          <li><strong>MIS-31 (~1.07 Ma):</strong> 35-40% del WAIS perdido bajo CO₂ ~400 ppm,
+            análogo al Plioceno (Naish et al. 2009).</li>
+          <li><strong>Mid-Pliocene (~3 Ma):</strong> Plataformas Ross y Ronne colapsadas;
+            condición de referencia para "Earth with +3°C" (Pollard & DeConto 2009).</li>
         </ul>
-        <p class="muted">Estado: pendiente. Datos curados a mano + modelos publicados.</p>
+        <p class="muted">Pipeline futuro: bajar polígonos LGM/Eemiense del RAISED y servir
+           como overlay temporal en el mapa con slider.</p>
       </div>
     </section>
 
     <!-- Predicción -->
     <section id="tab-prediccion" class="tab-panel">
-      <div class="prose">
-        <h2>Predicción bajo escenarios IPCC</h2>
-        <p>Proyecciones de retroceso glaciar y pérdida de masa bajo SSP1-2.6, SSP2-4.5 y SSP5-8.5 (CMIP6 / ISMIP6).</p>
-        <ul>
-          <li><strong>ISMIP6-Antarctica:</strong> ensemble de modelos de hielo forzados con CMIP6.</li>
-          <li><strong>Salidas:</strong> contribución al SLR, líneas de costa proyectadas a 2100 y 2300.</li>
-        </ul>
-        <p class="muted">Estado: pendiente. Bajar productos ISMIP6 y armar visualizador comparativo.</p>
+      <div class="prose" style="overflow-y:auto; max-width: 900px;">
+        <h2>Predicción del manto antártico — IPCC AR6 / ISMIP6</h2>
+        <p>Proyecciones de pérdida de masa bajo escenarios SSP (IPCC AR6 WG1 Chapter 9,
+           Edwards et al. 2021 <i>Nature</i>, Seroussi et al. 2020 <i>The Cryosphere</i>).
+           Valores en mm de equivalencia de nivel del mar (SLE).</p>
+
+        <h3>Contribución del manto antártico al aumento del nivel del mar al 2100</h3>
+        <div style="position:relative; height:340px;">
+          <canvas id="chart-slr-projection"></canvas>
+        </div>
+        <p class="muted" style="font-size:0.8rem">
+          Líneas: mediana del ensemble ISMIP6. Sombreado: rango 5-95 percentil
+          (incertidumbre del modelo). Escenarios SSP1-2.6 (baja emisión, mediana
+          ~50 mm), SSP2-4.5 (intermedio ~85 mm), SSP5-8.5 (alta emisión ~130 mm).
+          Cola alta SSP5-8.5: hasta 510 mm con MICI activado (DeConto et al. 2021).
+        </p>
+
+        <h3>Glaciares críticos a vigilar</h3>
+        <table style="width:100%; max-width:700px; font-size:0.9rem; border-collapse:collapse;">
+          <thead>
+            <tr style="border-bottom:1px solid #444;">
+              <th style="text-align:left; padding:0.4rem;">Glaciar</th>
+              <th style="text-align:right; padding:0.4rem;">SLE potencial (m)</th>
+              <th style="text-align:left; padding:0.4rem;">Estado dinámico</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid #2a3441;">
+              <td style="padding:0.4rem;">Thwaites</td>
+              <td style="text-align:right; padding:0.4rem;">~0.65</td>
+              <td style="padding:0.4rem;">Inestabilidad MISI confirmada</td>
+            </tr>
+            <tr style="border-bottom:1px solid #2a3441;">
+              <td style="padding:0.4rem;">Pine Island</td>
+              <td style="text-align:right; padding:0.4rem;">~0.50</td>
+              <td style="padding:0.4rem;">Retroceso acelerado desde 1990s</td>
+            </tr>
+            <tr style="border-bottom:1px solid #2a3441;">
+              <td style="padding:0.4rem;">Totten</td>
+              <td style="text-align:right; padding:0.4rem;">~3.5</td>
+              <td style="padding:0.4rem;">Base bajo nivel del mar, adelgazando</td>
+            </tr>
+            <tr style="border-bottom:1px solid #2a3441;">
+              <td style="padding:0.4rem;">Denman</td>
+              <td style="text-align:right; padding:0.4rem;">~1.5</td>
+              <td style="padding:0.4rem;">Cañón subglacial más profundo del mundo</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="muted" style="font-size:0.8rem; margin-top:1rem;">
+          Datos: ISMIP6-Antarctica (Seroussi 2020), AR6 WG1 Cross-Chapter Box 9.1.
+        </p>
       </div>
     </section>
 

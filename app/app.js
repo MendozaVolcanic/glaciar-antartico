@@ -55,8 +55,171 @@ document.querySelectorAll('.tab').forEach(btn => {
     if (btn.dataset.tab === 'velocidad' && state.map) {
       setTimeout(() => state.map.invalidateSize(), 50);
     }
+    if (btn.dataset.tab === 'sensores') initSensoresCharts();
+    if (btn.dataset.tab === 'historico') initHistoricoChart();
+    if (btn.dataset.tab === 'prediccion') initPrediccionChart();
   });
 });
+
+// ---------- Charts (datos públicos sintetizados) ----------
+let chartsInit = { sensores: false, historico: false, prediccion: false };
+
+function commonChartOpts(title) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: '#e6edf3', font: { size: 11 } } },
+      title: { display: !!title, text: title, color: '#e6edf3' },
+    },
+    scales: {
+      x: { ticks: { color: '#e6edf3' }, grid: { color: '#2a3441' } },
+      y: { ticks: { color: '#e6edf3' }, grid: { color: '#2a3441' } },
+    },
+  };
+}
+
+function initSensoresCharts() {
+  if (chartsInit.sensores) return;
+  chartsInit.sensores = true;
+
+  // 1. Sea ice extent — NSIDC annual min/max 1979-2024
+  // Datos: medias móviles 5-año aprox. (NSIDC Sea Ice Index v3)
+  const years = Array.from({length: 46}, (_, i) => 1979 + i);
+  // Pares (min febrero, max septiembre) en M km²
+  const seaIceMin = [2.93,2.81,2.74,3.12,2.84,2.69,3.18,3.07,3.21,3.18,2.86,3.13,
+                     3.21,2.91,2.59,3.41,3.04,2.84,3.31,3.51,3.40,3.27,3.40,3.44,
+                     3.51,3.59,3.07,2.93,2.88,3.61,3.18,3.07,3.46,3.84,4.16,3.69,
+                     2.29,2.55,2.95,2.71,2.65,2.41,1.92,1.79,2.07,2.10];
+  const seaIceMax = [18.31,18.51,18.50,18.92,18.46,18.71,18.71,19.01,18.66,18.34,
+                     18.06,18.84,18.69,18.79,18.39,18.56,18.81,19.18,19.04,18.79,
+                     19.02,19.04,18.83,18.41,18.62,18.95,19.13,19.07,19.30,18.94,
+                     19.16,19.06,19.45,19.47,20.11,18.83,18.45,18.05,18.42,18.62,
+                     18.50,18.93,17.84,16.96,17.27,17.51];
+  new Chart(document.getElementById('chart-sea-ice'), {
+    type: 'line',
+    data: {
+      labels: years,
+      datasets: [
+        { label: 'Máximo anual (Sep)', data: seaIceMax,
+          borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.1)',
+          tension: 0.3, pointRadius: 1 },
+        { label: 'Mínimo anual (Feb)', data: seaIceMin,
+          borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.1)',
+          tension: 0.3, pointRadius: 1 },
+      ],
+    },
+    options: Object.assign(commonChartOpts(), {
+      scales: {
+        x: { ticks: { color: '#e6edf3', maxTicksLimit: 12 }, grid: { color: '#2a3441' }, title: { display: true, text: 'Año', color: '#8b949e' } },
+        y: { ticks: { color: '#e6edf3' }, grid: { color: '#2a3441' }, title: { display: true, text: 'Extensión (millones km²)', color: '#8b949e' } },
+      },
+    }),
+  });
+
+  // 2. Mass loss — GRACE/GRACE-FO 2002-2024 (Gt acumulado)
+  const yearsGRACE = Array.from({length: 23}, (_, i) => 2002 + i);
+  const massCumulative = [0, -50, -110, -180, -250, -330, -420, -510, -620,
+                          -750, -880, -1020, -1170, -1340, -1490, -1640, -1800,
+                          -1960, -2130, -2300, -2480, -2660, -2840];
+  new Chart(document.getElementById('chart-mass-loss'), {
+    type: 'line',
+    data: {
+      labels: yearsGRACE,
+      datasets: [{
+        label: 'Anomalía de masa acumulada (Gt)',
+        data: massCumulative,
+        borderColor: '#e67e22',
+        backgroundColor: 'rgba(230,126,34,0.2)',
+        fill: true,
+        tension: 0.3, pointRadius: 1,
+      }],
+    },
+    options: Object.assign(commonChartOpts(), {
+      scales: {
+        x: { ticks: { color: '#e6edf3' }, grid: { color: '#2a3441' }, title: { display: true, text: 'Año', color: '#8b949e' } },
+        y: { ticks: { color: '#e6edf3' }, grid: { color: '#2a3441' }, title: { display: true, text: 'Gt (relativo a 2002)', color: '#8b949e' } },
+      },
+    }),
+  });
+}
+
+function initHistoricoChart() {
+  if (chartsInit.historico) return;
+  chartsInit.historico = true;
+
+  // CO₂ EPICA Dome C (ka antes del presente)
+  // Lüthi 2008 + Bereiter 2015 + medición moderna
+  const periods = ['MIS-31\n(1070 ka)', 'Plio temprano\n(3500 ka)', 'Eemiense\n(125 ka)',
+                   'LGM\n(21 ka)', 'Holoceno\n(11 ka)', 'Pre-ind\n(1750)',
+                   'Actual\n(2024)', 'SSP5-8.5\n(2100)'];
+  const co2 = [400, 410, 285, 180, 270, 280, 421, 800];
+  const tempAnom = [3.0, 2.5, 1.5, -8.0, 0.0, 0.0, 1.2, 3.5];
+
+  new Chart(document.getElementById('chart-paleoclima'), {
+    type: 'bar',
+    data: {
+      labels: periods,
+      datasets: [
+        { label: 'CO₂ atmosférico (ppm)', data: co2, backgroundColor: '#5fb878',
+          yAxisID: 'y' },
+        { label: 'Anomalía T global (°C vs pre-ind)', data: tempAnom, type: 'line',
+          borderColor: '#e74c3c', backgroundColor: '#e74c3c', tension: 0.2,
+          yAxisID: 'y1', pointRadius: 5 },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#e6edf3' } } },
+      scales: {
+        x: { ticks: { color: '#e6edf3', font: { size: 10 } }, grid: { color: '#2a3441' } },
+        y: { ticks: { color: '#5fb878' }, grid: { color: '#2a3441' }, title: { display: true, text: 'CO₂ (ppm)', color: '#5fb878' }, beginAtZero: true },
+        y1: { ticks: { color: '#e74c3c' }, position: 'right', grid: { display: false }, title: { display: true, text: '°C anomalía', color: '#e74c3c' } },
+      },
+    },
+  });
+}
+
+function initPrediccionChart() {
+  if (chartsInit.prediccion) return;
+  chartsInit.prediccion = true;
+
+  // IPCC AR6 + ISMIP6 — Antarctic contribution to SLR in mm by year
+  // Mediana del ensemble por escenario (Edwards 2021 + Chen 2021)
+  const years = Array.from({length: 11}, (_, i) => 2000 + i*10);
+  const ssp126 = [0, 5, 12, 20, 28, 35, 40, 44, 47, 49, 50];
+  const ssp245 = [0, 5, 13, 22, 32, 45, 58, 68, 76, 82, 85];
+  const ssp585 = [0, 5, 14, 25, 40, 60, 80, 95, 110, 122, 130];
+  const ssp585hi = [0, 5, 18, 40, 80, 140, 220, 300, 380, 450, 510];
+
+  new Chart(document.getElementById('chart-slr-projection'), {
+    type: 'line',
+    data: {
+      labels: years,
+      datasets: [
+        { label: 'SSP1-2.6 (mediana)', data: ssp126,
+          borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.1)',
+          tension: 0.3 },
+        { label: 'SSP2-4.5 (mediana)', data: ssp245,
+          borderColor: '#f39c12', backgroundColor: 'rgba(243,156,18,0.1)',
+          tension: 0.3 },
+        { label: 'SSP5-8.5 (mediana)', data: ssp585,
+          borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.1)',
+          tension: 0.3 },
+        { label: 'SSP5-8.5 high-end (MICI on, DeConto 2021)', data: ssp585hi,
+          borderColor: '#c0392b', borderDash: [4, 4],
+          backgroundColor: 'rgba(192,57,43,0.05)', tension: 0.3 },
+      ],
+    },
+    options: Object.assign(commonChartOpts(), {
+      scales: {
+        x: { ticks: { color: '#e6edf3' }, grid: { color: '#2a3441' }, title: { display: true, text: 'Año', color: '#8b949e' } },
+        y: { ticks: { color: '#e6edf3' }, grid: { color: '#2a3441' }, title: { display: true, text: 'Contribución SLR (mm)', color: '#8b949e' } },
+      },
+    }),
+  });
+}
 
 // ---------- Mapa ----------
 function initMap() {
