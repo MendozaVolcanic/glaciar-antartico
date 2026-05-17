@@ -26,19 +26,24 @@ const antarcticCRS = () => new L.Proj.CRS(
   }
 );
 
-// ITS_LIVE tile endpoints. Los mosaicos anuales viven en:
-//   https://its-live-data.s3.amazonaws.com/velocity_mosaic/v2/static/...
-// Para servirlos como tiles XYZ usamos el endpoint Titiler-ITS_LIVE
-// (https://nsidc.org/data/nsidc-0731/versions/2) cuando esté disponible;
-// si no, el script scripts/fetch_itslive.py baja el NetCDF y lo tila local.
-const ITSLIVE_TILE_TEMPLATE =
-  'https://nsidc.org/api/itslive/v2/tiles/antarctic/{year}/{var}/{z}/{x}/{y}.png';
+// ITS_LIVE — servimos un COG GeoTIFF (downsampled a ~1km desde el NetCDF
+// original de 120m, 8.6 GB) desde GitHub Pages con range-requests. Solo
+// tenemos 1 año (2022) + variable 'v' (magnitud) por restricción de espacio.
+// Para más años/variables: ver scripts/fetch_itslive.py + itslive_to_cog.py.
+const ITSLIVE_COGS = {
+  '2022_v': 'data/itslive_RGI19A_2022_v_1km.tif',
+};
 
-function buildItsLiveUrl(year, varName) {
-  return ITSLIVE_TILE_TEMPLATE
-    .replace('{year}', year)
-    .replace('{var}', varName);
+function getCogPath(year, varName) {
+  const key = `${year}_${varName}`;
+  return ITSLIVE_COGS[key] || null;
 }
+
+// Palette para velocidad glaciar: turbo (perceptualmente uniforme)
+const VEL_PALETTE = ['#30123b', '#3e3691', '#4669db', '#3b9be1', '#26bf9a',
+                     '#5cc640', '#a4d22f', '#dbcd2c', '#f4a228', '#e64b1f',
+                     '#bb0a07', '#7a0403'];
+const VEL_DOMAIN = [0, 2000];  // m/yr — clipped log-friendly
 
 // ---------- Tabs ----------
 document.querySelectorAll('.tab').forEach(btn => {
@@ -76,28 +81,50 @@ function initMap() {
   addLegend();
 }
 
-function applyItsLiveLayer() {
+async function applyItsLiveLayer() {
   if (state.itsLayer) state.map.removeLayer(state.itsLayer);
-  const url = buildItsLiveUrl(state.itsYear, state.itsVar);
-  state.itsLayer = L.tileLayer(url, {
-    opacity: 0.78,
-    attribution: 'ITS_LIVE · NASA MEaSUREs (Gardner et al.)',
-    errorTileUrl: '',
-  });
-  let errors = 0;
-  state.itsLayer.on('tileerror', () => {
-    errors++;
-    if (errors === 1) {
-      document.getElementById('status').innerHTML =
-        '⚠ Tiles remotas no disponibles.<br>' +
-        'Corre <code>python scripts/fetch_itslive.py</code> para generar local.';
-    }
-  });
-  state.itsLayer.on('load', () => {
-    const lbl = state.itsYear === '0000' ? 'compuesto' : state.itsYear;
-    document.getElementById('status').textContent = `ITS_LIVE ${state.itsVar} · ${lbl}`;
-  });
-  state.itsLayer.addTo(state.map);
+  const status = document.getElementById('status');
+  const cogPath = getCogPath(state.itsYear, state.itsVar);
+  if (!cogPath) {
+    status.innerHTML =
+      `⚠ Combinación <strong>${state.itsYear} / ${state.itsVar}</strong> no disponible.<br>` +
+      'Solo bajado: 2022 / v (magnitud). Más años o componentes vx/vy:<br>' +
+      '<code>python scripts/fetch_itslive.py --year YYYY --vars vx</code>';
+    return;
+  }
+  status.textContent = `Cargando COG ITS_LIVE ${state.itsYear}…`;
+  try {
+    const response = await fetch(cogPath);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const buf = await response.arrayBuffer();
+    const georaster = await parseGeoraster(buf);
+
+    const scale = chroma.scale(VEL_PALETTE).domain(VEL_DOMAIN);
+    state.itsLayer = new GeoRasterLayer({
+      georaster,
+      opacity: 0.82,
+      resolution: 64,
+      pixelValuesToColorFn: vals => {
+        const v = vals[0];
+        if (v === null || v === undefined || v < 0) return null;
+        // Highlight glaciares rápidos (>500 m/yr) con saturación completa
+        return scale(Math.min(v, VEL_DOMAIN[1])).hex();
+      },
+      attribution: 'ITS_LIVE · NASA MEaSUREs (Gardner et al.)',
+    });
+    state.itsLayer.addTo(state.map);
+    const sizeKB = Math.round(buf.byteLength / 1024);
+    status.innerHTML = `<strong>ITS_LIVE ${state.itsYear} · v (m/yr)</strong><br>` +
+                       `COG 1km (${sizeKB} KB) servido desde GH Pages.<br>` +
+                       `Glaciares >500 m/yr en colores cálidos.`;
+  } catch (e) {
+    console.error('ITS_LIVE COG load error:', e);
+    status.innerHTML =
+      `⚠ COG no disponible (${e.message}).<br>` +
+      'Genera local con:<br>' +
+      '<code>python scripts/fetch_itslive.py</code><br>' +
+      '<code>python scripts/itslive_to_cog.py --year 2022</code>';
+  }
 }
 
 function addLegend() {
