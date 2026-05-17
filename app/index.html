@@ -33,19 +33,15 @@
       <aside class="sidebar">
         <h3>Capas</h3>
         <div class="filter-group">
-          <label>Mosaico ITS_LIVE</label>
+          <label>Año del mosaico ITS_LIVE</label>
           <select id="itslive-year">
-            <option value="0000">Mosaico anual compuesto</option>
-            <option value="2022">2022</option>
-            <option value="2021">2021</option>
-            <option value="2020">2020</option>
-            <option value="2019">2019</option>
-            <option value="2018">2018</option>
-            <option value="2017">2017</option>
-            <option value="2016">2016</option>
-            <option value="2015">2015</option>
-            <option value="2014">2014</option>
+            <option value="2010">2010</option>
+            <option value="2022" selected>2022</option>
           </select>
+          <p class="muted" style="font-size:0.7rem; margin: 0.4rem 0 0;">
+            Solo 2010 y 2022 descargados (12 años de diferencia para
+            ver el speed-up de PIG/Thwaites).
+          </p>
         </div>
         <div class="filter-group">
           <label>Variable</label>
@@ -53,14 +49,19 @@
             <input type="radio" name="itslive-var" value="v" checked />
             Magnitud (m/yr)
           </label>
+          <p class="muted" style="font-size:0.7rem; margin: 0;">
+            Solo `v` (magnitud) descargada. vx, vy requieren bajar
+            otros 6 GB de NetCDF.
+          </p>
+        </div>
+        <div class="filter-group">
           <label class="checkbox">
-            <input type="radio" name="itslive-var" value="vx" />
-            Componente Vx
+            <input type="checkbox" id="show-compare" />
+            Modo comparación 2010 vs 2022
           </label>
-          <label class="checkbox">
-            <input type="radio" name="itslive-var" value="vy" />
-            Componente Vy
-          </label>
+          <p class="muted" style="font-size:0.7rem; margin: 0;">
+            Divide la pantalla horizontalmente; izquierda 2010, derecha 2022.
+          </p>
         </div>
         <div class="filter-group">
           <label class="checkbox">

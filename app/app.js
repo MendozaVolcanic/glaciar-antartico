@@ -31,8 +31,10 @@ const antarcticCRS = () => new L.Proj.CRS(
 // tenemos 1 año (2022) + variable 'v' (magnitud) por restricción de espacio.
 // Para más años/variables: ver scripts/fetch_itslive.py + itslive_to_cog.py.
 const ITSLIVE_COGS = {
+  '2010_v': 'data/itslive_RGI19A_2010_v_1km.tif',
   '2022_v': 'data/itslive_RGI19A_2022_v_1km.tif',
 };
+const ITSLIVE_YEARS_AVAILABLE = ['2010', '2022'];
 
 function getCogPath(year, varName) {
   const key = `${year}_${varName}`;
@@ -244,49 +246,77 @@ function initMap() {
   addLegend();
 }
 
+// Cache de georasters parsed para evitar re-fetch
+const georasterCache = {};
+
+async function loadGeoraster(cogPath) {
+  if (georasterCache[cogPath]) return georasterCache[cogPath];
+  const response = await fetch(cogPath);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const buf = await response.arrayBuffer();
+  const georaster = await parseGeoraster(buf);
+  georasterCache[cogPath] = { georaster, sizeKB: Math.round(buf.byteLength / 1024) };
+  return georasterCache[cogPath];
+}
+
+function makeItsLiveLayer(georaster, opacity = 0.82) {
+  const scale = chroma.scale(VEL_PALETTE).domain(VEL_DOMAIN);
+  return new GeoRasterLayer({
+    georaster, opacity, resolution: 64,
+    pixelValuesToColorFn: vals => {
+      const v = vals[0];
+      if (v === null || v === undefined || v < 0) return null;
+      return scale(Math.min(v, VEL_DOMAIN[1])).hex();
+    },
+    attribution: 'ITS_LIVE · NASA MEaSUREs (Gardner et al.)',
+  });
+}
+
+state.itsLayer2 = null;  // capa 2010 cuando modo comparación on
+state.showCompare = false;
+
 async function applyItsLiveLayer() {
   if (state.itsLayer) state.map.removeLayer(state.itsLayer);
+  if (state.itsLayer2) { state.map.removeLayer(state.itsLayer2); state.itsLayer2 = null; }
   const status = document.getElementById('status');
   const cogPath = getCogPath(state.itsYear, state.itsVar);
   if (!cogPath) {
     status.innerHTML =
       `⚠ Combinación <strong>${state.itsYear} / ${state.itsVar}</strong> no disponible.<br>` +
-      'Solo bajado: 2022 / v (magnitud). Más años o componentes vx/vy:<br>' +
+      'Solo bajado: 2010 + 2022 / v (magnitud). Más años o componentes vx/vy:<br>' +
       '<code>python scripts/fetch_itslive.py --year YYYY --vars vx</code>';
     return;
   }
   status.textContent = `Cargando COG ITS_LIVE ${state.itsYear}…`;
   try {
-    const response = await fetch(cogPath);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const buf = await response.arrayBuffer();
-    const georaster = await parseGeoraster(buf);
-
-    const scale = chroma.scale(VEL_PALETTE).domain(VEL_DOMAIN);
-    state.itsLayer = new GeoRasterLayer({
-      georaster,
-      opacity: 0.82,
-      resolution: 64,
-      pixelValuesToColorFn: vals => {
-        const v = vals[0];
-        if (v === null || v === undefined || v < 0) return null;
-        // Highlight glaciares rápidos (>500 m/yr) con saturación completa
-        return scale(Math.min(v, VEL_DOMAIN[1])).hex();
-      },
-      attribution: 'ITS_LIVE · NASA MEaSUREs (Gardner et al.)',
-    });
+    const { georaster, sizeKB } = await loadGeoraster(cogPath);
+    state.itsLayer = makeItsLiveLayer(georaster, 0.82);
     state.itsLayer.addTo(state.map);
-    const sizeKB = Math.round(buf.byteLength / 1024);
+
+    if (state.showCompare && state.itsYear !== '2010') {
+      // Cargar 2010 como capa de referencia debajo
+      const cogPath2 = getCogPath('2010', state.itsVar);
+      if (cogPath2) {
+        const { georaster: gr2 } = await loadGeoraster(cogPath2);
+        state.itsLayer2 = makeItsLiveLayer(gr2, 0.55);
+        state.itsLayer2.addTo(state.map);
+        state.itsLayer.bringToFront();
+      }
+    }
+
     status.innerHTML = `<strong>ITS_LIVE ${state.itsYear} · v (m/yr)</strong><br>` +
                        `COG 1km (${sizeKB} KB) servido desde GH Pages.<br>` +
-                       `Glaciares >500 m/yr en colores cálidos.`;
+                       (state.showCompare && state.itsLayer2 ?
+                        '<em style="color:#5fb878">Modo comparación: 2010 (transparente) + ' +
+                        state.itsYear + ' (encima)</em>' :
+                        'Glaciares >500 m/yr en colores cálidos.');
   } catch (e) {
     console.error('ITS_LIVE COG load error:', e);
     status.innerHTML =
       `⚠ COG no disponible (${e.message}).<br>` +
       'Genera local con:<br>' +
       '<code>python scripts/fetch_itslive.py</code><br>' +
-      '<code>python scripts/itslive_to_cog.py --year 2022</code>';
+      '<code>python scripts/itslive_to_cog.py --year ' + state.itsYear + '</code>';
   }
 }
 
@@ -413,6 +443,14 @@ document.getElementById('show-glaciers').addEventListener('change', e => {
   state.showGlaciers = e.target.checked;
   renderGlaciersLayer();
 });
+
+const showCompareEl = document.getElementById('show-compare');
+if (showCompareEl) {
+  showCompareEl.addEventListener('change', e => {
+    state.showCompare = e.target.checked;
+    applyItsLiveLayer();
+  });
+}
 
 // ---------- Bootstrap ----------
 initMap();
