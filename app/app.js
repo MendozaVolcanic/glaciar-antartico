@@ -31,10 +31,16 @@ const antarcticCRS = () => new L.Proj.CRS(
 // tenemos 1 año (2022) + variable 'v' (magnitud) por restricción de espacio.
 // Para más años/variables: ver scripts/fetch_itslive.py + itslive_to_cog.py.
 const ITSLIVE_COGS = {
-  '2010_v': 'data/itslive_RGI19A_2010_v_1km.tif',
-  '2022_v': 'data/itslive_RGI19A_2022_v_1km.tif',
+  '2010_v':       'data/itslive_RGI19A_2010_v_1km.tif',
+  '2022_v':       'data/itslive_RGI19A_2022_v_1km.tif',
+  'delta_v':      'data/itslive_delta_2010_2022_v_1km.tif',
 };
-const ITSLIVE_YEARS_AVAILABLE = ['2010', '2022'];
+const ITSLIVE_YEARS_AVAILABLE = ['2010', '2022', 'delta'];
+
+// Palette divergente para delta (rojo = aceleración, azul = desaceleración)
+const DELTA_PALETTE = ['#08306b', '#2166ac', '#4393c3', '#92c5de', '#d1e5f0',
+                       '#f7f7f7', '#fddbc7', '#f4a582', '#d6604d', '#b2182b', '#67000d'];
+const DELTA_DOMAIN = [-200, 200];  // m/yr (clipped)
 
 function getCogPath(year, varName) {
   const key = `${year}_${varName}`;
@@ -259,13 +265,22 @@ async function loadGeoraster(cogPath) {
   return georasterCache[cogPath];
 }
 
-function makeItsLiveLayer(georaster, opacity = 0.82) {
-  const scale = chroma.scale(VEL_PALETTE).domain(VEL_DOMAIN);
+function makeItsLiveLayer(georaster, opacity = 0.82, mode = 'velocity') {
+  const isDelta = (mode === 'delta');
+  const scale = isDelta
+    ? chroma.scale(DELTA_PALETTE).domain(DELTA_DOMAIN)
+    : chroma.scale(VEL_PALETTE).domain(VEL_DOMAIN);
   return new GeoRasterLayer({
     georaster, opacity, resolution: 64,
     pixelValuesToColorFn: vals => {
       const v = vals[0];
-      if (v === null || v === undefined || v < 0) return null;
+      if (v === null || v === undefined || v === -32768) return null;
+      if (!isDelta && v < 0) return null;
+      if (isDelta) {
+        // Solo pintar cambios significativos (>±20 m/yr) para evitar ruido
+        if (Math.abs(v) < 20) return null;
+        return scale(Math.max(DELTA_DOMAIN[0], Math.min(DELTA_DOMAIN[1], v))).hex();
+      }
       return scale(Math.min(v, VEL_DOMAIN[1])).hex();
     },
     attribution: 'ITS_LIVE · NASA MEaSUREs (Gardner et al.)',
@@ -288,12 +303,13 @@ async function applyItsLiveLayer() {
     return;
   }
   status.textContent = `Cargando COG ITS_LIVE ${state.itsYear}…`;
+  const mode = state.itsYear === 'delta' ? 'delta' : 'velocity';
   try {
     const { georaster, sizeKB } = await loadGeoraster(cogPath);
-    state.itsLayer = makeItsLiveLayer(georaster, 0.82);
+    state.itsLayer = makeItsLiveLayer(georaster, 0.82, mode);
     state.itsLayer.addTo(state.map);
 
-    if (state.showCompare && state.itsYear !== '2010') {
+    if (state.showCompare && state.itsYear !== '2010' && mode === 'velocity') {
       // Cargar 2010 como capa de referencia debajo
       const cogPath2 = getCogPath('2010', state.itsVar);
       if (cogPath2) {
@@ -304,12 +320,24 @@ async function applyItsLiveLayer() {
       }
     }
 
-    status.innerHTML = `<strong>ITS_LIVE ${state.itsYear} · v (m/yr)</strong><br>` +
-                       `COG 1km (${sizeKB} KB) servido desde GH Pages.<br>` +
-                       (state.showCompare && state.itsLayer2 ?
-                        '<em style="color:#5fb878">Modo comparación: 2010 (transparente) + ' +
-                        state.itsYear + ' (encima)</em>' :
-                        'Glaciares >500 m/yr en colores cálidos.');
+    if (mode === 'delta') {
+      status.innerHTML =
+        `<strong>Δv = v(2022) − v(2010) en m/yr</strong><br>` +
+        `COG 1km (${sizeKB} KB).<br>` +
+        '<span style="color:#b2182b">Rojo</span>: aceleración<br>' +
+        '<span style="color:#2166ac">Azul</span>: desaceleración<br>' +
+        'Solo |Δ| > 20 m/yr para reducir ruido.<br>' +
+        '<em style="color:#e0a458">Preliminar, no citar: 2010 (Landsat 7 SLC-off) ' +
+        'y 2022 (Landsat 8/9 + Sentinel) tienen coberturas y sensores distintos, ' +
+        'y el delta arrastra un sesgo sistematico sin corregir.</em>';
+    } else {
+      status.innerHTML = `<strong>ITS_LIVE ${state.itsYear} · v (m/yr)</strong><br>` +
+                         `COG 1km (${sizeKB} KB) servido desde GH Pages.<br>` +
+                         (state.showCompare && state.itsLayer2 ?
+                          '<em style="color:#5fb878">Modo comparación: 2010 (transparente) + ' +
+                          state.itsYear + ' (encima)</em>' :
+                          'Glaciares >500 m/yr en colores cálidos.');
+    }
   } catch (e) {
     console.error('ITS_LIVE COG load error:', e);
     status.innerHTML =
