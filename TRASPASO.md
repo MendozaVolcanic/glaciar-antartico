@@ -124,7 +124,73 @@ que GitHub Pages los sirva sin regenerar nada. Los NetCDF crudos de ITS_LIVE no:
 - La pestaña Predicción usa curvas IPCC AR6 genéricas, no un modelo propio corrido sobre
   estos datos.
 
-## 7. Próximos pasos sugeridos
+## 7. Pendientes de la auditoría de código
+
+Auditoría del 2026-08-24 con seis revisores. Informe completo en el repo maestro:
+[`contextos-geologicos/reviews/code-review/2026-08-24_CODE-REVIEW-REPORT.md`](https://github.com/MendozaVolcanic/contextos-geologicos/blob/main/reviews/code-review/2026-08-24_CODE-REVIEW-REPORT.md).
+
+**Ya corregido:** `fetch_itslive.py` se caía al redirigir la salida a un archivo (cp1252 en
+Windows), más los dos filtros de artefactos del §3.
+
+**Lo que queda abierto en este repo:**
+
+### 7.1 · Dos problemas de muestreo que necesitan tu criterio
+
+**Un solo umbral fijo para regímenes de hielo incompatibles** — `top_acceleration_sites.py:95`
+
+El clasificador aplica los mismos cortes absolutos (±30 y ±10 m/yr) a los ocho sitios. Pero
+`KEY_GLACIERS` mezcla tres cosas que no son comparables:
+
+- glaciares de descarga rápidos y aterrizados (Pine Island, Thwaites, Totten, Denman),
+- plataformas flotantes (Amery, Ross, Larsen C),
+- y un sitio de divisoria interior (Kohnen / EPICA-DML), elegido justamente por su flujo
+  casi nulo y muy estable, del orden de 1-2 m/yr.
+
+30 m/yr es alrededor del 1% de la velocidad de Pine Island —señal plausible— pero **excede
+la velocidad total de Kohnen**, donde solo puede ser ruido. Los dos reciben la misma
+etiqueta cualitativa en la tabla que consume la pestaña Sensores.
+
+Lo razonable es normalizar por la velocidad base local (cambio porcentual respecto al año
+temprano en esa ventana) en vez de, o además de, un corte absoluto en m/yr; y separar
+plataformas, hielo aterrizado y divisoria en escalas distintas — o al menos marcar Kohnen
+como sitio de referencia de estabilidad y no rankearlo junto a los glaciares rápidos.
+
+**Una ventana de 30 km rotulada como la plataforma completa** — `top_acceleration_sites.py:37`
+
+`WINDOW_KM = 30` da un cuadro de ~60×60 km, unos 3.600 km². Pero la salida rotula esos
+números como "Ross Ice Shelf", "Amery Ice Shelf" y "Larsen C", que miden ~500.000, ~60.000
+y ~50.000 km² respectivamente. En el caso de Ross, el número describe **menos del 1%** de
+la plataforma y se lee como si la caracterizara entera.
+
+Dos salidas: enmascarar con el polígono real de cada rasgo (hay outlines de plataformas
+disponibles), o cambiar el rótulo para que diga explícitamente que es una ventana local
+alrededor de un punto representativo, no el estadístico de la plataforma.
+
+### 7.2 · Menores
+
+- `top_acceleration_sites.py:110` — `-(g.get("mean_delta") or -9999)`: en Python `0.0` es
+  falsy, así que un sitio con aceleración media exactamente 0,0 se ordenaría al final como
+  si fuera el más desacelerado. Bug latente: hoy ningún sitio da 0,0 exacto. El arreglo es
+  comparar con `is not None`.
+- `requirements.txt` declara solo cotas inferiores (`>=`) sin lockfile. `rasterio`,
+  `rioxarray` y `xarray` han roto API entre versiones mayores, así que una instalación
+  limpia dentro de un año puede no reproducir los COG actuales. Conviene commitear un
+  `pip freeze`.
+- `app/app.js:290` — `itsLayer2` y `showCompare` se agregan al objeto `state` fuera de su
+  definición inicial, así que no se ven al leer el estado.
+- El panel muestra "COG 1km (0 KB)" en la capa delta: `sizeKB` no recibe `content-length`
+  en esa ruta. Cosmético.
+- `sentinel1_autorift.py` está esbozado pero no integrado al visor.
+
+### 7.3 · Riesgo no verificado
+
+No se comprobó que las coordenadas de `KEY_GLACIERS` caigan sobre el tronco rápido de cada
+glaciar y no sobre un margen o la línea de conexión a tierra. Con coberturas de ventana tan
+dispares entre sitios (Pine Island quedó en 34,5%), vale la pena revisarlo antes de
+interpretar cualquier número.
+
+
+## 8. Próximos pasos sugeridos
 
 1. **Cerrar el tema del §3.** Todo lo demás en aceleración depende de esa decisión.
 2. Integrar el feature tracking propio (autoRIFT sobre Sentinel-1) para no depender solo
