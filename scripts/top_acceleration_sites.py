@@ -106,8 +106,14 @@ def main() -> int:
                 g["status"] = "Estable"
         results.append(g)
 
-    # Ordenar por mean_delta descendente (más aceleración primero)
-    results.sort(key=lambda g: -(g.get("mean_delta") or -9999))
+    # Ordenar por mean_delta descendente (más aceleración primero).
+    #
+    # El `or` de antes trataba 0.0 como ausente —en Python 0.0 es falsy—, así que
+    # un sitio con aceleración media exactamente nula se hundía al final del ranking
+    # como si fuera el que más desacelera. Hoy ninguno da 0.0 exacto, pero Kohnen
+    # fluye a 1-2 m/yr y es candidato natural a caer ahí.
+    results.sort(key=lambda g: -(g["mean_delta"] if g.get("mean_delta") is not None
+                                 else -9999))
 
     print("\n[RESULTADOS]")
     print(f"{'Glaciar':<28} {'D media':>10} {'D max':>8} {'% accel':>8} {'cob%':>6} Estado")
