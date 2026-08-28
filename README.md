@@ -10,6 +10,16 @@ Proyecto 2 del documento `Visor Antartico.docx`. Independiente del visor de cont
 - 🌐 [contextos-geologicos](https://mendozavolcanic.github.io/contextos-geologicos/) — Proyecto 1: visor de 9 SCAR Frameworks + 121 geositios (ASPAs + SCAR + propuestos bibliométrica) + BedMap UI
 - 🧊 **glaciar-antartico** *(este repo)* — Proyecto 2: velocidades ITS_LIVE, sensores multi-fuente, predicción IPCC
 
+> 📋 **Estado del proyecto y traspaso:** este repo pasó a continuidad de Felipe Fuentes
+> Carrasco el 2026-08-24 y **ya no tiene copia local en el equipo original**. El estado
+> global de la Suite está en
+> [`contextos-geologicos/ESTADO.md`](https://github.com/MendozaVolcanic/contextos-geologicos/blob/main/ESTADO.md);
+> lo pendiente de este repo, en [`TRASPASO.md`](TRASPASO.md).
+>
+> ⚠️ El producto **Δ Aceleración** es preliminar y no debe citarse: restar dos mosaicos
+> anuales de ITS_LIVE no es un método validado y el delta arrastra un sesgo entre
+> sensores sin corregir. Ver `TRASPASO.md` §3.
+
 ## Objetivos
 
 1. **Velocidades de flujo glaciar** desde imágenes Copernicus (Sentinel-1 SAR, Sentinel-2 óptico) usando feature/offset tracking.
